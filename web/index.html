@@ -11,28 +11,23 @@
     <script src="js/vendor/jquery.js"></script>
     <script src="js/foundation.min.js"></script>
     <script>
-      var firebase = new Firebase('https://firstbuild-hackathon.firebaseio.com');
+      var firebase = new Firebase('https://firstbuild-sandbox.firebaseio.com');
 
       var keybuf = "";
-
-      // $(document).keydown(function(e){
-      //   console.log(e);
-      // });
+      var current_transaction = {};
 
       $(document).bind("keyup",function(e){
         
-        console.log(e);
-
         if (e.keyCode==13)
         {
 
           if (keybuf=="STARTPURCHASE")
           {
-            start_transaction();
+            start_transaction("purchase");
           }
           else if (keybuf=="STARTREORDER")
           {
-            start_transaction();
+            start_transaction("reorder");
           }
           else if (keybuf=="END")
           {
@@ -40,7 +35,12 @@
           }
           else
           {
-            add_item_to_transaction(keybuf);
+            try {
+              add_item_to_transaction(keybuf);
+            } catch (e)
+            {
+              console.log ("error");
+            }
           }
           keybuf = "";
         }
@@ -53,115 +53,157 @@
 
       function start_transaction(type)
       {
+        current_transaction.type = type;
         console.log("start transaction: " + type);
       }
 
       function end_transaction()
       {
+        current_transaction.type = type;
         console.log("end transaction");
       }
 
       function add_item_to_transaction(item)
       {
-        console.log("item added: " + item);
-      }
-      function checkout(user, item, callback) {
-        firebase.child('users').child(user).once('value', function(snapshot) {
-          var content = snapshot.val() || {
-            items: []
-          };
-
-          content.items.push(item);
-          firebase.child('users').child(user).update(content, callback);
-        });
-      }
-
-      function checkin(user, item, callback) {
-        firebase.child('users').child(user).once('value', function(snapshot) {
-          var content = snapshot.val() || {
-            items: []
-          };
-
-          for (var i = 0; i < content.items.length; i++) {
-            if (content.items[i].toLowerCase() == item.toLowerCase()) {
-              content.items.splice(i, 1);
-              break;
-            }
+        console.log("item requested to be added: " + item);
+        firebase.child('inventory').child(item).once('value', function(snapshot) {
+          var content = snapshot.val() ;
+          if (content)
+          {
+            document.getElementById("successwav").play();
+            current_transaction.item = content;
+            current_transaction.item.key = snapshot.key();
+            firebase.child('pending_transactions').push(current_transaction);
+            //firebase.child('users').child(user).update(content, callback);
+            console.log("item added: ");
+            console.log(content);
           }
-
-          firebase.child('users').child(user).update(content, callback);
-        });
+          else
+          {
+            document.getElementById("failwav").play();
+          }
+          
+        });  
       }
 
-      function get_input() {
-        var badge = $('#scanned_badge').val();
-        var item = $('#scanned_item').val();
+      // function checkout(user, item, callback) {
+      //   firebase.child('users').child(user).once('value', function(snapshot) {
+      //     var content = snapshot.val() || {
+      //       items: []
+      //     };
 
-        if (badge && item) {
-          return { badge: badge, item: item };
-        }
-      }
+      //     content.items.push(item);
+      //     firebase.child('users').child(user).update(content, callback);
+      //   });
+      // }
 
-      function reset_input() {
-        $('#scanned_item').val('');
-      }
+      // function checkin(user, item, callback) {
+      //   firebase.child('users').child(user).once('value', function(snapshot) {
+      //     var content = snapshot.val() || {
+      //       items: []
+      //     };
 
-      function checkin_click() {
-        var input = get_input();
+      //     for (var i = 0; i < content.items.length; i++) {
+      //       if (content.items[i].toLowerCase() == item.toLowerCase()) {
+      //         content.items.splice(i, 1);
+      //         break;
+      //       }
+      //     }
 
-        if (input) {
-          checkin(input.badge, input.item);
-          reset_input();
-        }
-        else {
-          alert('Please scan a badge and an item');
-        }
-      }
+      //     firebase.child('users').child(user).update(content, callback);
+      //   });
+      // }
 
-      function checkout_click() {
-        var input = get_input();
+      // function get_input() {
+      //   var badge = $('#scanned_badge').val();
+      //   var item = $('#scanned_item').val();
 
-        if (input) {
-          checkout(input.badge, input.item);
-          reset_input();
-        }
-        else {
-          alert('Please scan a badge and an item');
-        }
-      }
+      //   if (badge && item) {
+      //     return { badge: badge, item: item };
+      //   }
+      // }
+
+      // function reset_input() {
+      //   $('#scanned_item').val('');
+      // }
+
+      // function checkin_click() {
+      //   var input = get_input();
+
+      //   if (input) {
+      //     checkin(input.badge, input.item);
+      //     reset_input();
+      //   }
+      //   else {
+      //     alert('Please scan a badge and an item');
+      //   }
+      // }
+
+      // function checkout_click() {
+      //   var input = get_input();
+
+      //   if (input) {
+      //     checkout(input.badge, input.item);
+      //     reset_input();
+      //   }
+      //   else {
+      //     alert('Please scan a badge and an item');
+      //   }
+      // }
 
       function flatten(content) {
         var items = [];
-
-        if (content) {
-          for (var user in content.users) {
-            items.push({
-              user: user,
-              items: content.users[user].items || []
-            });
-          }
-        }
-
+        // if (content) {
+        //   for (var transaction in content) {
+        //     items.push(transaction);
+        //   }
+        // }
+        items.push(content);
         return items;
       }
 
-      function view(snapshot) {
-        $('#items_checked_out').html(
-          flatten(snapshot.val())
-          .map(function(item) {
-            return '<tr>'
-              + '<td>' + item.user + '</td>'
-              + '<td>' + item.items.join(', ') + '</td>'
+      function mapFunction(item)
+      {
+        console.log(item);
+        return '<tr>'
+              + '<td>' + "a" +'</td>'
+              + '<td>' + "b" + '</td>'
+              + '<td>' + item.url + '</td>'
+              + '<td>' + item.retailprice + '</td>'
               + '</tr>';
-          })
-          .join(''));
       }
+
+      function view(snapshot) {
+        $('#pending_transactions').html(
+          flatten(snapshot.val()).map(mapFunction));
+      }
+
+      // function view(snapshot) {
+      //   console.log(snapshot.item)
+      //   content = snapshot.val();
+      //   $('#pending_transactions').html(
+      //     '<tr>'
+      //         + '<td>' + content.type + '</td>'
+      //         + '<td>' + content.item.key + '</td>'
+      //         + '<td>' + content.item.url + '</td>'
+      //         + '<td>' + content.item.retailprice + '</td>'
+      //         + '</tr>').join('');
+      //     // flatten(snapshot.val())
+      //     // .map(function(item) {
+      //     //   return '<tr>'
+      //     //     + '<td>' + item.user + '</td>'
+      //     //     + '<td>' + item.items.join(', ') + '</td>'
+      //     //     + '</tr>';
+      //     // })
+      //     // .join(''));
+      // }
     </script>
   </head>
   <body>
-
-    <h3>&nbsp; Inventory Management</h3>
-    <form>
+    <audio src="success.wav" id="successwav" autostart="false"></audio>
+    <audio src="fail.wav" id="failwav" autostart="false"></audio>
+    <h3>&nbsp; Radio Shed</h3>
+   <!-- <form>
       <div class="row collapse">
         <div class="small-3 large-2 columns">
           <span class="prefix">Badge</span>
@@ -190,16 +232,18 @@
         </div>
       </div>
     </form>
-
-    <h3>&nbsp; Items Checked Out</h3>
+  -->
+    <h4>&nbsp; Pending Items</h4>
     <table>
       <thead>
         <tr>
-          <th width="200">Badge</th>
-          <th>Items</th>
+          <th width="200">Type</th>
+          <th>Item</th>
+          <th>URL</th>
+          <th>Retail Price</th>
         </tr>
       </thead>
-      <tbody id="items_checked_out">
+      <tbody id="pending_transactions">
       </tbody>
     </table>
     
@@ -208,7 +252,7 @@
       $(document).foundation();
 
       $(document).ready(function() {
-        firebase.on('value', view);
+        firebase.child('pending_transactions').on('value', view);
       });
     </script>
   </body>
