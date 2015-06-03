@@ -36,7 +36,14 @@
           else
           {
             try {
-              add_item_to_transaction(keybuf);
+              if (current_transaction.type)
+              {
+                add_item_to_transaction(keybuf);
+              }
+              else
+              {
+                alert("no current transaction. start one. its fun.")
+              }
             } catch (e)
             {
               console.log ("error");
@@ -59,7 +66,7 @@
 
       function end_transaction()
       {
-        current_transaction.type = type;
+        current_transaction = {};
         console.log("end transaction");
       }
 
@@ -73,6 +80,7 @@
             document.getElementById("successwav").play();
             current_transaction.item = content;
             current_transaction.item.key = snapshot.key();
+            current_transaction.item.type = current_transaction.type;
             firebase.child('pending_transactions').push(current_transaction);
             //firebase.child('users').child(user).update(content, callback);
             console.log("item added: ");
@@ -86,155 +94,49 @@
         });  
       }
 
-      // function checkout(user, item, callback) {
-      //   firebase.child('users').child(user).once('value', function(snapshot) {
-      //     var content = snapshot.val() || {
-      //       items: []
-      //     };
-
-      //     content.items.push(item);
-      //     firebase.child('users').child(user).update(content, callback);
-      //   });
-      // }
-
-      // function checkin(user, item, callback) {
-      //   firebase.child('users').child(user).once('value', function(snapshot) {
-      //     var content = snapshot.val() || {
-      //       items: []
-      //     };
-
-      //     for (var i = 0; i < content.items.length; i++) {
-      //       if (content.items[i].toLowerCase() == item.toLowerCase()) {
-      //         content.items.splice(i, 1);
-      //         break;
-      //       }
-      //     }
-
-      //     firebase.child('users').child(user).update(content, callback);
-      //   });
-      // }
-
-      // function get_input() {
-      //   var badge = $('#scanned_badge').val();
-      //   var item = $('#scanned_item').val();
-
-      //   if (badge && item) {
-      //     return { badge: badge, item: item };
-      //   }
-      // }
-
-      // function reset_input() {
-      //   $('#scanned_item').val('');
-      // }
-
-      // function checkin_click() {
-      //   var input = get_input();
-
-      //   if (input) {
-      //     checkin(input.badge, input.item);
-      //     reset_input();
-      //   }
-      //   else {
-      //     alert('Please scan a badge and an item');
-      //   }
-      // }
-
-      // function checkout_click() {
-      //   var input = get_input();
-
-      //   if (input) {
-      //     checkout(input.badge, input.item);
-      //     reset_input();
-      //   }
-      //   else {
-      //     alert('Please scan a badge and an item');
-      //   }
-      // }
-
       function flatten(content) {
-        var items = [];
-        // if (content) {
-        //   for (var transaction in content) {
-        //     items.push(transaction);
-        //   }
-        // }
-        items.push(content);
-        return items;
-      }
-
-      function mapFunction(item)
-      {
-        console.log(item);
-        return '<tr>'
-              + '<td>' + "a" +'</td>'
-              + '<td>' + "b" + '</td>'
-              + '<td>' + item.url + '</td>'
+          var htmlitem;
+          for (var key in content)
+          {
+            var obj = content[key];
+            for (var subkey in obj)
+            {
+              var item = obj[subkey]
+              htmlitem = htmlitem + '<tr>'
+              + '<td>' + item.type +'</td>'
+              + '<td>' + item.key + '</td>'
+              + '<td><a href="' + item.url + '">'+item.url+'</a></td>'
               + '<td>' + item.retailprice + '</td>'
+              + '<td><a class="deleteLink" href="#" >delete</a></td>' +
               + '</tr>';
+            }     
+          }
+          return htmlitem;
       }
 
       function view(snapshot) {
-        $('#pending_transactions').html(
-          flatten(snapshot.val()).map(mapFunction));
+        $('#pending_transactions').html( flatten(snapshot.val()) );
+        // $("#pending_transactions_table .deleteLink").on("click",function() {
+        //   var tr = $(this).closest('tr');
+        //   firebase.child('inventory').child((tr.children()[1]).innerHTML).remove( function (error) {
+        //   //   var tr = $(this).closest('tr');
+        //   //   tr.css("background-color","#FF3700");
+        //   //   tr.fadeOut(400, function(){
+        //   //     tr.remove();
+        //   //  });
+        //   });
+          
+        //   // return false;
+        // });
       }
-
-      // function view(snapshot) {
-      //   console.log(snapshot.item)
-      //   content = snapshot.val();
-      //   $('#pending_transactions').html(
-      //     '<tr>'
-      //         + '<td>' + content.type + '</td>'
-      //         + '<td>' + content.item.key + '</td>'
-      //         + '<td>' + content.item.url + '</td>'
-      //         + '<td>' + content.item.retailprice + '</td>'
-      //         + '</tr>').join('');
-      //     // flatten(snapshot.val())
-      //     // .map(function(item) {
-      //     //   return '<tr>'
-      //     //     + '<td>' + item.user + '</td>'
-      //     //     + '<td>' + item.items.join(', ') + '</td>'
-      //     //     + '</tr>';
-      //     // })
-      //     // .join(''));
-      // }
     </script>
   </head>
   <body>
     <audio src="success.wav" id="successwav" autostart="false"></audio>
     <audio src="fail.wav" id="failwav" autostart="false"></audio>
     <h3>&nbsp; Radio Shed</h3>
-   <!-- <form>
-      <div class="row collapse">
-        <div class="small-3 large-2 columns">
-          <span class="prefix">Badge</span>
-        </div>
-        <div class="small-9 large-10 columns">
-          <input type="text" id="scanned_badge" placeholder="Scan badge...">
-        </div>
-      </div>
-      <div class="row collapse">
-        <div class="small-3 large-2 columns">
-          <span class="prefix">Item</span>
-        </div>
-        <div class="small-9 large-10 columns">
-          <input type="text" id="scanned_item" placeholder="Scan item...">
-        </div>
-      </div>
-      <div class="row collapse">
-        <div class="small-4 large-4 columns">
-          <a href="javascript:checkout_click()" class="button expand">Check Out</a>
-        </div>
-        <div class="small-4 large-4 columns">
-          <div></div>
-        </div>
-        <div class="small-4 large-4 columns">
-          <a href="javascript:checkin_click()" class="button expand success">Check In</a>
-        </div>
-      </div>
-    </form>
-  -->
     <h4>&nbsp; Pending Items</h4>
-    <table>
+    <table id="pending_transactions_table">
       <thead>
         <tr>
           <th width="200">Type</th>
@@ -253,6 +155,7 @@
 
       $(document).ready(function() {
         firebase.child('pending_transactions').on('value', view);
+        
       });
     </script>
   </body>
